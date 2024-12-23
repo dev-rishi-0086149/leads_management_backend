@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TAT Breached Notification</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #333;
+      background-color: #f4f4f4;
+      padding: 20px;
+    }
+    h1 {
+      color: #ff6f61;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th {
+      background-color: #ff6f61;
+      color: white;
+    }
+    .highlight {
+      background-color: #f8d7da;
+    }
+  </style>
+</head>
+<body>
+  <h1>TAT Breached Notification</h1>
+  <p>Dear <%= emp_name %>,</p>
+  
+  <p>We are writing to inform you that the Turnaround Time (TAT) for some of your leads has been breached. Please find the details below:</p>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Customer Name</th>
+        <th>Phone Number</th>
+        <th>Aadhar</th>
+        <th>Time Elapsed</th>
+        
+      </tr>
+    </thead>
+    <tbody>
+      <% leads.forEach(function(lead) { %>
+        <tr class="<%= lead.isBreached ? 'highlight' : '' %>">
+          <td><%= lead.id %></td>
+          <td><%= lead.cust_name %></td>
+          <td><%= lead.phone_no %></td>
+          <td><%= lead.aadhar %> </td>
+          <td><%= lead.TimeElapsed  %> days</td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+
+  <p>Please take immediate action to resolve the situation. If you have any questions or need further details, feel free to contact us.</p>
+  
+  <p>Best regards,</p>
+  <p>Your Team</p>
+</body>
+</html>
