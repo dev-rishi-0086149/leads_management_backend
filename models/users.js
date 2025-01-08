@@ -28,6 +28,9 @@ const Users = dbconnect.define(
     branch_id: {
       type: Sequelize.INTEGER,
     },
+    case_load:{
+      type: Sequelize.INTEGER,
+    }
   },
   {
     tableName: "users",

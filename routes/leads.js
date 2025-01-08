@@ -13,6 +13,12 @@ router.get('/get-leads-count',verifyJWT,leadsCtrl.getLeadsCount);
 router.get('/get-dashboard-data',verifyJWT,leadsCtrl.getDashData);
 
 router.post('/update-lead',verifyJWT,upload.any(),leadsCtrl.updateLeads);
+router.post('/push-data-cfl',upload.any(),leadsCtrl.pushDataCFL);
+router.post('/delete-file',verifyJWT,leadsCtrl.deleteFileWithId);
+
+
+router.post('/file-upload-test',upload.any(),leadsCtrl.fileUploadTesting);
+
 
 
 

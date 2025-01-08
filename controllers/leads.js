@@ -1,14 +1,18 @@
 const { Sequelize } = require("sequelize");
 const { where, Op } = require("sequelize");
 const fs = require("fs").promises;
+const dbconnect = require("../util/sequelize_mysql_config");
 const {
   WebsiteCustData,
   Leads,
   ConvRemarks,
   DatalakeCustData,
   UserDocs,
+  CflBranch,
+  Users
 } = require("../models/association");
 const path = require("path");
+
 
 //testing
 // raw website customer data
@@ -97,20 +101,24 @@ const getLeads = async (req, res) => {
     const limit = rown;
     const offset = (pageno - 1) * rown;
 
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(now.getTime() + istOffset);
+
     let whereCondition = {};
     if (tab == 0) {
       //active leads
       whereCondition = {
         [Op.or]: [
           { status: 0 },
-          { status: 1, lead_origin_date: { [Op.lte]: new Date() } },
+          { status: 1, lead_origin_date: { [Op.lte]: nowIST } },
         ],
       };
     } else if (tab == 1) {
       //upcoming leads
       whereCondition = {
         status: 1,
-        lead_origin_date: { [Op.gte]: new Date() },
+        lead_origin_date: { [Op.gt]: nowIST },
       };
     } else if (tab == 2) {
       //intrested
@@ -145,11 +153,16 @@ const getLeads = async (req, res) => {
           model: ConvRemarks,
           as: "conv",
         },
+        {
+          model: UserDocs,
+          as: "docs",
+        },
       ],
       order: [["lead_origin_date", "ASC"]],
       limit,
       offset,
     });
+
     return res.status(200).json({ status: true, data: data });
   } catch (error) {
     console.log(error);
@@ -185,7 +198,7 @@ const getLeadsCount = async (req, res) => {
       //upcoming leads
       whereCondition = {
         status: 1,
-        lead_origin_date: { [Op.gte]: new Date() },
+        lead_origin_date: { [Op.gt]: new Date() },
       };
     } else if (tab == 2) {
       //intrested
@@ -247,7 +260,7 @@ const updateLeads = async (req, res) => {
       annual_income,
       address,
     } = req.body;
-    console.log(req.files);
+    //console.log("files received ", req.files);
     let updateBody = {
       contacted_on,
       //response,
@@ -263,14 +276,44 @@ const updateLeads = async (req, res) => {
       updateBody.amount_interested = amount_interested;
     }
 
-    //files that might be included
-    //address_proof_doc
-    //income_proof_doc
-    //pan_doc
-    //aadhar_doc
+    //0-aadhar docs
+    //1-pan docs
+    //2-property docs
+    //3-bank statement
+    //4-income proof doc
+    //5 address proof doc
     for (let i = 0; i < req.files.length; i++) {
       const fileName = await saveFile(req.files[i]);
-      updateBody[`${req.files[i].fieldname}`] = fileName;
+      //updateBody[`${req.files[i].fieldname}`] = fileName;
+
+      // lead_id, doc_type, file_name,
+      let doc_type = 0;
+      switch (req.files[i].fieldname) {
+        case "aadhar_doc":
+          doc_type = 0;
+          break;
+        case "pan_doc":
+          doc_type = 1;
+          break;
+        case "property_doc":
+          doc_type = 2;
+          break;
+        case "bank_statement_doc":
+          doc_type = 3;
+          break;
+        case "income_proof_doc":
+          doc_type = 4;
+          break;
+        case "address_proof_doc":
+          doc_type = 5;
+          break;
+      }
+
+      const tblFileUpdate = await UserDocs.create({
+        lead_id: id,
+        doc_type,
+        file_name: fileName,
+      });
     }
 
     const updateLead = await Leads.update(updateBody, {
@@ -303,10 +346,15 @@ const updateLeads = async (req, res) => {
 
 const getDashData = async (req, res) => {
   try {
-    const startOfDay = new Date();
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(now.getTime() + istOffset);
+
+
+    const startOfDay =new Date(now.getTime() + istOffset);
     startOfDay.setHours(0, 0, 0, 0);
 
-    const endOfDay = new Date();
+    const endOfDay = new Date(now.getTime() + istOffset);
     endOfDay.setHours(23, 59, 59, 999);
 
     const newLeadsCount = await Leads.count({
@@ -323,7 +371,7 @@ const getDashData = async (req, res) => {
       where: {
         LO_id: req.id,
         [Op.or]: [{ status: 0 }, { status: 1 }],
-        lead_origin_date: { [Op.lte]: new Date() },
+        lead_origin_date: { [Op.lte]: nowIST },
       },
     });
 
@@ -332,7 +380,7 @@ const getDashData = async (req, res) => {
         LO_id: req.id,
         [Op.or]: [{ status: 0 }, { status: 1 }],
         lead_origin_date: {
-          [Op.lte]: new Date(new Date() - 10 * 24 * 60 * 60 * 1000),
+          [Op.lte]: new Date(nowIST - 10 * 24 * 60 * 60 * 1000),
         },
       },
     });
@@ -340,7 +388,7 @@ const getDashData = async (req, res) => {
     const upcomingLeadsCount = await Leads.count({
       where: {
         LO_id: req.id,
-        lead_origin_date: { [Op.gt]: new Date() },
+        lead_origin_date: { [Op.gt]: nowIST },
       },
     });
     return res.status(200).json({
@@ -384,134 +432,196 @@ const saveFileBuffer = async (fileBuffer, fileName) => {
 // aadhaar_number, pan_voter, property_documents, aadhaar_card_attachment,
 // pan_voter_pic, bank_statement, created_on
 const pushDataCFL = async (req, res) => {
+  const transaction = await dbconnect.transaction();
   try {
-    const {
-      loan_application_id,
-      loan_type,
-      required_amount,
-      full_name,
-      dob,
-      gender,
-      marital_status,
-      phone_number,
-      contact_address,
-      email,
-      nationality,
-      permanent_address,
-      aadhaar_number,
-      pan_voter,
-      property_documents,
-      aadhaar_card_attachment,
-      pan_voter_pic,
-      bank_statement,
-    } = req.body;
-    const cibilScore = Math.floor(Math.random() * (700 - 500 + 1)) + 500; //500-700
-    //save data to website_cust_data
-    const custDataParams = {
-      cust_name: full_name,
-      //city
-      //state
-      aadhar: aadhaar_number,
-      PAN: pan_voter,
-      cibil_score: cibilScore,
-      phone_no: phone_number,
-      DOB: dob,
-      gender,
-      marital_status,
-      email,
-      contact_address,
-      nationality,
-      permanent_address,
-    };
-    const custData = await WebsiteCustData.create(custDataParams);
-    //generate lead if cibil>=600
-    if (cibilScore >= 600) {
-      //id, cust_database_id, type, status, contacted_on, lead_origin_date, amount_interested,
-      //LO_id, annual_income, address_proof_doc, address, income_proof_doc, pan_doc, aadhar_doc,
-
-      const now = new Date();
-      const istOffset = 5.5 * 60 * 60 * 1000;
-      const today = new Date(now.getTime() + istOffset);
-
-      const leadDataParams = {
-        cust_database_id: custData["id"],
-        type: 0, //website lead
+    try {
+      const {
+        loan_application_id,
         loan_type,
-        status: 0,
-        lead_origin_date: today,
-        amount_interested: required_amount,
+        required_amount,
+        full_name,
+        dob,
+        gender,
+        marital_status,
+        phone_number,
+        contact_address,
+        email,
+        nationality,
+        permanent_address,
+        aadhaar_number,
+        pan_voter,
+        state,
+        city,
+        branch
+        // property_documents,
+        // aadhaar_card_attachment,
+        // pan_voter_pic,
+        // bank_statement,
+      } = req.body;
+
+
+      const existingUser =await WebsiteCustData.findOne({
+        where:{
+          [Op.or]: [
+            { aadhar: aadhaar_number },  // Match the ID
+            { PAN: phone_number }, // Match the name
+            { PAN: pan_voter } // Match the phone number
+          ]
+        }
+      });
+      if(existingUser){
+        //console.log(existingUser);
+        return res.status(400).json({status:false,message:"customer with same aadhar or PAN or mobile number already exist in database"});
+      }
+
+
+      //const cibilScore = Math.floor(Math.random() * (700 - 500 + 1)) + 500; //500-700
+      const cibilScore = 800;
+      //save data to website_cust_data
+      const custDataParams = {
+        cust_name: full_name,
+        city: city,
+        state: state,
+        aadhar: aadhaar_number,
+        PAN: pan_voter,
+        cibil_score: cibilScore,
+        phone_no: phone_number,
+        DOB: dob,
+        gender,
+        marital_status,
+        email,
+        contact_address,
+        nationality,
+        permanent_address,
       };
+      const custData = await WebsiteCustData.create(custDataParams,{transaction});
 
-      const leadStatus = await Leads.create(leadDataParams);
+       
 
-      //saving aadhar docs
-      for (let i = 0; i < aadhaar_card_attachment.length; i++) {
-        const savedFileName = await saveFileBuffer(
-          aadhaar_card_attachment[i].buffer,
-          aadhaar_card_attachment[i].fileName
-        );
-        if (savedFileName) {
-          const saveStatus = await UserDocs.create({
-            lead_id: leadStatus["id"],
-            doc_type: 0,
-            fileName: savedFileName,
-          });
+      //generate lead if cibil>=600
+      if (cibilScore >= 600) {
+        //id, cust_database_id, type, status, contacted_on, lead_origin_date, amount_interested,
+        //LO_id, annual_income, address_proof_doc, address, income_proof_doc, pan_doc, aadhar_doc,
+
+        
+
+        //lead assignment
+
+        //get credit assistents data
+        const CAData = await Users.findAll({
+          include: [
+            {
+              model: CflBranch,
+              as: "branch_details",
+              where: {
+                branch_name:branch
+              }
+            },
+          ],
+          order: [
+            ['case_load', 'ASC'] 
+          ]
+        });
+
+        if(CAData?.length==0) {
+          console.log("rolling back transaction");
+          await transaction.rollback();
+          return res.status(400).json({status:false,message:"wrong branch selected"});
         }
-      }
+        let currentcaseLoad = CAData[0]["case_load"];
+        //console.log("current case load ",currentcaseLoad);
+        CAData[0]["case_load"]=currentcaseLoad+1;
+        await CAData[0].save({ transaction: transaction });
 
-      //property_documents
-      for (let i = 0; i < property_documents.length; i++) {
-        const savedFileName = await saveFileBuffer(
-          property_documents[i].buffer,
-          property_documents[i].fileName
-        );
-        if (savedFileName) {
-          const saveStatus = await UserDocs.create({
-            lead_id: leadStatus["id"],
-            doc_type: 2,
-            fileName: savedFileName,
-          });
-        }
-      }
 
-      //pan_voter_pic
-      for (let i = 0; i < pan_voter_pic.length; i++) {
-        const savedFileName = await saveFileBuffer(
-          pan_voter_pic[i].buffer,
-          pan_voter_pic[i].fileName
-        );
-        if (savedFileName) {
-          const saveStatus = await UserDocs.create({
-            lead_id: leadStatus["id"],
-            doc_type: 1,
-            fileName: savedFileName,
-          });
-        }
-      }
+        const CAid = CAData[0]['id'];
 
-      //bank_statement
-      for (let i = 0; i < bank_statement.length; i++) {
-        const savedFileName = await saveFileBuffer(
-          bank_statement[i].buffer,
-          bank_statement[i].fileName
-        );
-        if (savedFileName) {
-          const saveStatus = await UserDocs.create({
-            lead_id: leadStatus["id"],
-            doc_type: 3,
-            fileName: savedFileName,
-          });
+
+
+        const now = new Date();
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const today = new Date(now.getTime() + istOffset);
+
+        const leadDataParams = {
+          cust_database_id: custData["id"],
+          type: 0, //website lead
+          loan_type,
+          status: 0,
+          lead_origin_date: today,
+          amount_interested: required_amount,
+          LO_id:CAid
+        };
+        
+
+
+        const leadStatus = await Leads.create(leadDataParams,{transaction});
+        
+        //console.log("no of files ",req.files.length);
+        //entry in user_docs
+        for (let i = 0; i < req.files.length; i++) {
+          const fileName = await saveFile(req.files[i]);
+          //updateBody[`${req.files[i].fieldname}`] = fileName;
+          if (fileName) {
+            let doc_type = 0;
+            if (req.files[i].fieldname == "aadhaar_card_attachment")
+              doc_type = 0;
+            else if (req.files[i].fieldname == "pan_voter_pic") doc_type = 1;
+            else if (req.files[i].fieldname == "property_documents")
+              doc_type = 2;
+            else if (req.files[i].fieldname == "bank_statement") doc_type = 3;
+
+            const saveStatus = await UserDocs.create({
+              lead_id: leadStatus["id"],
+              doc_type,
+              file_name: fileName,
+            },{transaction});
+          }
         }
+
+        await transaction.commit();
+        return res
+          .status(200)
+          .json({ status: 200, message: "data pushed successfully" });
       }
+    } catch (error) {
+      console.log(error);
+      console.log("rolling back transaction");
+      await transaction.rollback();
       return res
-        .status(200)
-        .json({ status: 200, message: "data pushed successfully" });
+        .status(500)
+        .json({ status: false, message: "error while pushing data" });
     }
   } catch (error) {
-    console.log(error);
+    console.log("error while creating transaction");
+    return res.status(500).json({status:false,message:"error while pushing data"});
+  }
+};
+
+const deleteFileWithId = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const deleteFileStatus = await UserDocs.destroy({ where: { id } });
+    if (deleteFileStatus)
+      return res.status(200).json({ status: true, message: "files deleted" });
+
+    return res
+      .status(400)
+      .json({ status: false, message: "no file with given id" });
+  } catch (error) {
     return res
       .status(500)
-      .json({ status: false, message: "error while pushing data" });
+      .json({ status: false, message: `error while deleting file , ${error}` });
+  }
+};
+
+const fileUploadTesting = async (req, res) => {
+  try {
+    console.log(req.files);
+    return res.status(200).json({
+      status: true,
+    });
+  } catch (error) {
+    return res.status(500).json({ status: false });
   }
 };
 
@@ -524,4 +634,14 @@ module.exports = {
   getLeadsCount,
   updateLeads,
   getDashData,
+  pushDataCFL,
+  fileUploadTesting,
+  deleteFileWithId,
 };
+
+// aadhar_doc
+// pan_doc
+// property_doc
+// bank_statement_doc
+// income_proof_doc
+// address_proof_doc

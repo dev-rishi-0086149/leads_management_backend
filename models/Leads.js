@@ -44,21 +44,10 @@ const Leads = dbconnect.define(
     annual_income:{
       type:Sequelize.STRING,
     },
-    address_proof_doc:{
-      type:Sequelize.STRING
-    },
     address:{
       type:Sequelize.STRING,
     },
-    income_proof_doc:{
-      type:Sequelize.STRING
-    },
-    pan_doc:{
-      type:Sequelize.STRING
-    },
-    aadhar_doc:{
-      type:Sequelize.STRING
-    }
+    
 
 
   },
@@ -72,46 +61,46 @@ module.exports = Leads;
 
 
 
-const saveFiles = async (files, policy_id, version, type) => {
-  try {
-    if (type == 3) {
-      const fileLogStatus = await FileLog.create({
-        policy_id,
-        file_name: files[0],
-        version,
-        type,
-      });
-      if (!fileLogStatus) {
-        throw { status: false, message: "error while logging to tbl_files" };
-      }
-    } else {
-      const folder = "public/policy_document";
-      fs.mkdirSync(folder, { recursive: true });
-      files.map(async (file, index) => {
-        let extension = path.extname(file.originalname);
-        let displayName = getDisplayPolicyId(policy_id);
-        const timeStamp = Math.floor(Date.now() / 1000);
-        let fileName = `${displayName}-v${version}-${timeStamp}${index}${extension}`;
-        fs.writeFile(`${folder}/${fileName}`, file.buffer, (err) => {
-          if (err) {
-            throw { status: false, message: "error while saving files" };
-          }
-        });
-        //log the file to tbl_files
-        const fileLogStatus = await FileLog.create({
-          policy_id,
-          file_name: fileName,
-          version,
-          type,
-        });
-        if (!fileLogStatus) {
-          throw { status: false, message: "error while logging to tbl_files" };
-        }
-      });
-    }
-    return { status: true, message: "files saved successfully" };
-  } catch (error) {
-    console.log(error);
-    return { status: false, message: error.message };
-  }
-};
+// const saveFiles = async (files, policy_id, version, type) => {
+//   try {
+//     if (type == 3) {
+//       const fileLogStatus = await FileLog.create({
+//         policy_id,
+//         file_name: files[0],
+//         version,
+//         type,
+//       });
+//       if (!fileLogStatus) {
+//         throw { status: false, message: "error while logging to tbl_files" };
+//       }
+//     } else {
+//       const folder = "public/policy_document";
+//       fs.mkdirSync(folder, { recursive: true });
+//       files.map(async (file, index) => {
+//         let extension = path.extname(file.originalname);
+//         let displayName = getDisplayPolicyId(policy_id);
+//         const timeStamp = Math.floor(Date.now() / 1000);
+//         let fileName = `${displayName}-v${version}-${timeStamp}${index}${extension}`;
+//         fs.writeFile(`${folder}/${fileName}`, file.buffer, (err) => {
+//           if (err) {
+//             throw { status: false, message: "error while saving files" };
+//           }
+//         });
+//         //log the file to tbl_files
+//         const fileLogStatus = await FileLog.create({
+//           policy_id,
+//           file_name: fileName,
+//           version,
+//           type,
+//         });
+//         if (!fileLogStatus) {
+//           throw { status: false, message: "error while logging to tbl_files" };
+//         }
+//       });
+//     }
+//     return { status: true, message: "files saved successfully" };
+//   } catch (error) {
+//     console.log(error);
+//     return { status: false, message: error.message };
+//   }
+// };

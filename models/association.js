@@ -3,6 +3,7 @@ const DatalakeCustData = require("./dataLakeCustData");
 const Leads = require("./leads");
 const ConvRemarks = require("./LeadsConvRemarks");
 const Users = require("./users");
+const CflBranch = require("./branch_cfl");
 const UserDocs = require("./userDoc");
 
 //datalake
@@ -12,6 +13,9 @@ Leads.hasOne(DatalakeCustData,{foreignKey:'id',sourceKey:'cust_database_id', as:
 //website 
 Leads.hasOne(WebsiteCustData,{foreignKey:'id',sourceKey:'cust_database_id',as:'website_cust_data'});
 
+
+//user branch mapping
+Users.hasOne(CflBranch,{foreignKey:'id',sourceKey:'branch_id',as:'branch_details'});
 
 Leads.hasMany(ConvRemarks,{foreignKey:'lead_id', as:'conv'});
 ConvRemarks.belongsTo(Leads,{foreignKey:'lead_id'});
@@ -23,7 +27,10 @@ Leads.hasMany(UserDocs,{foreignKey:'lead_id',as:'docs'});
 UserDocs.belongsTo(Leads,{foreignKey:'lead_id'});
 
 
-module.exports = { Leads,WebsiteCustData,ConvRemarks,DatalakeCustData,Users,UserDocs };
+
+
+
+module.exports = { Leads,WebsiteCustData,ConvRemarks,DatalakeCustData,Users,UserDocs ,CflBranch};
 
 
 

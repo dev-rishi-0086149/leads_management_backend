@@ -22,40 +22,75 @@ const WebsiteCustData = dbconnect.define(
       allowNull: true,
     },
     aadhar: {
-      type: Sequelize.STRING(12), 
+      type: Sequelize.STRING(12),
       allowNull: false,
-      unique: true, 
+      unique: true,
     },
     PAN: {
       type: Sequelize.STRING(10),
       allowNull: false,
-      unique: true, 
+      unique: true,
     },
     cibil_score: {
       type: Sequelize.INTEGER,
       allowNull: false,
       validate: {
-        min: 300, 
-        max: 900, 
+        min: 300,
+        max: 900,
       },
     },
     phone_no: {
       type: Sequelize.STRING(15),
       allowNull: false,
-      unique: true, 
+      unique: true,
+    },
+    DOB: {
+      type: Sequelize.DATE,
+      allowNull: false,
+      unique: true,
+    },
+    gender: {
+      type: Sequelize.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    marital_status: {
+      type: Sequelize.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    email: {
+      type: Sequelize.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    contact_address: {
+      type: Sequelize.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    nationality: {
+      type: Sequelize.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    permanent_address: {
+      type: Sequelize.STRING,
+      allowNull: false,
+      unique: true,
     },
     createdAt: {
       type: Sequelize.DATE,
-      defaultValue: Sequelize.NOW, 
+      defaultValue: Sequelize.NOW,
     },
     updatedAt: {
       type: Sequelize.DATE,
-      defaultValue: Sequelize.NOW, 
+      defaultValue: Sequelize.NOW,
     },
   },
   {
     tableName: "website_cust_data",
-    timestamps: true, 
+    timestamps: true,
   }
 );
 

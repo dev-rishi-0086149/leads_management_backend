@@ -14,11 +14,12 @@ const UserDocs = dbconnect.define(
       allowNull: false,
     },
 
-    //0-aahar docs
+    //0-aadhar docs
     //1-pan docs
     //2-property docs
     //3-bank statement
-    //
+    //4-income proof doc
+    //5 address proof doc
     doc_type: {
       type: Sequelize.INTEGER,
       allowNull: false,
