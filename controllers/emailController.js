@@ -17,8 +17,8 @@ const newLeadEmailTrigger = async (req, res) => {
   try {
     // const emailUserName = process.env.EMAIL_USER;
     // const emailPass = process.env.EMAIL_PASS;
-    const emailUserName = "sramp.notifications@spandanasphoorty.com";
-    const emailPass = "W5RCq20ZV2";
+    const emailUserName = "#";
+    const emailPass = "#";
     const transporter = nodemailer.createTransport({
       service: "Outlook365",
       auth: {
